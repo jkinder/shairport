@@ -468,8 +468,19 @@ static void handle_set_parameter_metadata(rtsp_conn_info *conn,
 
         uint32_t vl = ntohl(*(uint32_t *)(cp+off));
         off += sizeof(uint32_t);
+	
+	if (off+vl > cl) {
+            debug(1, "META length %d exceeds content length, malformed data?\n", vl);
+            // We don't know where next tag should be, so just bail
+            break;
+	}
 
         char *val = malloc(vl+1);
+        if (!val) {
+            debug(1, "Could not allocate %d bytes for META contents\n", vl+1);
+            break;
+        }
+
         strncpy(val, cp+off, vl);
         val[vl] = '\0';
         off += vl;
