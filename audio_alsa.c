@@ -57,8 +57,11 @@ static snd_pcm_hw_params_t *alsa_params = NULL;
 
 static snd_mixer_t *alsa_mix_handle = NULL;
 static snd_mixer_elem_t *alsa_mix_elem = NULL;
+static snd_mixer_elem_t *alsa_mix_endpoint_elem = NULL; // JK
 static snd_mixer_selem_id_t *alsa_mix_sid = NULL;
+static snd_mixer_selem_id_t *alsa_mix_endpoint_sid = NULL; // JK
 static long alsa_mix_minv, alsa_mix_range;
+static int alsa_mix_endpoint_speaker_idx = 0; // JK
 
 static char *alsa_out_dev = "default";
 static char *alsa_mix_dev = NULL;
@@ -140,6 +143,32 @@ static int init(int argc, char **argv) {
     snd_mixer_selem_get_playback_volume_range (alsa_mix_elem, &alsa_mix_minv, &alsa_mix_maxv);
     alsa_mix_range = alsa_mix_maxv - alsa_mix_minv;
 
+
+    // JK: Set Endpoint to Speaker
+    snd_mixer_selem_id_alloca(&alsa_mix_endpoint_sid);
+    snd_mixer_selem_id_set_index(alsa_mix_endpoint_sid, 0);
+    snd_mixer_selem_id_set_name(alsa_mix_endpoint_sid, "Endpoint");
+    alsa_mix_endpoint_elem = snd_mixer_find_selem(alsa_mix_handle, alsa_mix_endpoint_sid);
+    if (!alsa_mix_endpoint_elem)
+        die ("Failed to find mixer element for Endpoint");
+
+    if (snd_mixer_selem_is_enumerated(alsa_mix_endpoint_elem)) {
+      char endpoint_name[16];
+      int idx;
+      int total_elems = snd_mixer_selem_get_enum_items(alsa_mix_endpoint_elem);
+      for (idx=0; idx<total_elems; ++idx) {
+	if (snd_mixer_selem_get_enum_item_name(alsa_mix_endpoint_elem, idx, 
+					       sizeof(endpoint_name) * sizeof(char), endpoint_name)) {
+	  continue;
+	}
+	if (!strcmp(endpoint_name, "Speaker")) {
+	  alsa_mix_endpoint_speaker_idx = idx;
+	  break;
+	}
+      }
+    }
+    // JK: End
+
     return 0;
 }
 
@@ -170,6 +199,9 @@ static void start(int sample_rate) {
     ret = snd_pcm_hw_params(alsa_handle, alsa_params);
     if (ret < 0)
         die("unable to set hw parameters: %s\n", snd_strerror(ret));
+
+    // JK: Set endpoint to speaker
+    snd_mixer_selem_set_enum_item(alsa_mix_endpoint_elem, 0, alsa_mix_endpoint_speaker_idx);
 }
 
 static void play(short buf[], int samples) {
@@ -186,6 +218,8 @@ static void stop(void) {
         snd_pcm_close(alsa_handle);
         alsa_handle = NULL;
     }
+    // JK: Restore PCM volume to full for Squeezeplay / Jive
+    volume(1);
 }
 
 static void volume(double vol) {
