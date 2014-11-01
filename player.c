@@ -484,11 +484,13 @@ static void *player_thread_func(void *arg) {
 
 // takes the volume as specified by the airplay protocol
 void player_volume(double f) {
-    double linear_volume = pow(10.0, 0.05*f);
-
     if (config.output->volume) {
+        // -30 is min volume, -144 is mute
+        double linear_volume = 1 + f/30;
+	linear_volume = linear_volume < 0 ? 0 : linear_volume;
         config.output->volume(linear_volume);
     } else {
+        double linear_volume = pow(10.0, 0.05*f);
         pthread_mutex_lock(&vol_mutex);
         volume = linear_volume;
         fix_volume = 65536.0 * volume;
