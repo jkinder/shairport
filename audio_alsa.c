@@ -183,6 +183,10 @@ static void start(int sample_rate) {
     if (sample_rate != 44100)
         die("Unexpected sample rate!");
 
+    // JK: kill jive
+    system("killall jive_alsa");
+    system("killall jive");
+
     int ret, dir = 0;
     snd_pcm_uframes_t frames = 64;
     ret = snd_pcm_open(&alsa_handle, alsa_out_dev, SND_PCM_STREAM_PLAYBACK, 0);
@@ -201,7 +205,8 @@ static void start(int sample_rate) {
         die("unable to set hw parameters: %s\n", snd_strerror(ret));
 
     // JK: Set endpoint to speaker
-    snd_mixer_selem_set_enum_item(alsa_mix_endpoint_elem, 0, alsa_mix_endpoint_speaker_idx);
+    if (alsa_mix_endpoint_elem)
+        snd_mixer_selem_set_enum_item(alsa_mix_endpoint_elem, 0, alsa_mix_endpoint_speaker_idx);
 }
 
 static void play(short buf[], int samples) {
@@ -219,7 +224,10 @@ static void stop(void) {
         alsa_handle = NULL;
     }
     // JK: Restore PCM volume to full for Squeezeplay / Jive
-    volume(1);
+    if (alsa_mix_elem)
+        volume(1);
+    // JK: restart jive
+    system("/etc/init.d/squeezeplay start");
 }
 
 static void volume(double vol) {
