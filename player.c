@@ -490,7 +490,8 @@ void player_volume(double f) {
 	linear_volume = linear_volume < 0 ? 0 : linear_volume;
         config.output->volume(linear_volume);
     } else {
-        double linear_volume = pow(10.0, 0.05*f);
+        // JK: scale up dampening by 1.5
+        double linear_volume = pow(10.0, 0.05*f * 1.5);
         pthread_mutex_lock(&vol_mutex);
         volume = linear_volume;
         fix_volume = 65536.0 * volume;
